@@ -2,6 +2,8 @@ import numpy as np
 from shapely.geometry import Point
 import geopandas
 
+np.random.seed(1977)
+
 # We're going to cheat a bit...
 did_not_flood = np.loadtxt('data/did_not_flood.txt')
 all_flooded = np.load('data/raw_verts.npy')
@@ -16,7 +18,7 @@ train_flooded = all_flooded[idx, :]
 flooded = np.hstack([np.zeros(n), np.ones(n)])
 xy = np.vstack([did_not_flood, train_flooded])
 
-points = [Point(x, y) for y, x in xy]
+points = [Point(x, y) for x, y in xy]
 df = geopandas.GeoDataFrame(dict(flooded=flooded), geometry=points)
 df.to_file('data/training_data.geojson', driver='GeoJSON')
 np.savetxt('data/train_xy.txt', xy)
