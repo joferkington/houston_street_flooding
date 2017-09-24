@@ -15,7 +15,7 @@ def main():
     lidar = 'data/merged_dem.vrt'
     df = geopandas.read_file('data/test_reprojection.geojson')
     funcs = dict(relief=relief, avg_slope=avg_slope, planar_slope=planar_slope,
-                 local_height=local_height)
+                 local_height=local_height, local_relief=local_relief)
 
     features = []
     columns = sorted(funcs.keys())
@@ -26,6 +26,9 @@ def main():
 
     output = pd.DataFrame(features, columns=columns + ['flooded'])
     output.to_csv('features_and_class.csv')
+
+    pred_features = generate_prediction_points(lidar)
+    pred_features.to_file('prediction_features.geojson', driver='GeoJSON')
 
 def relief(point, lidar_filename):
     region = geom.mapping(point.buffer(300))
@@ -50,6 +53,36 @@ def local_height(point, lidar_filename):
     z0 = elev[ny // 2, nx // 2]
     return z0 - elev.min()
 
+def local_relief(point, lidar_filename):
+    region = geom.mapping(point.buffer(200))
+    elev = read(lidar_filename, region)
+    ny, nx = elev.shape
+    z0 = elev[ny // 2, nx // 2]
+    return z0 - elev.mean()
+
+def generate_prediction_points(lidar):
+    xmin, ymin, xmax, ymax = 3117065.,13860840., 3137630., 13884230.
+    cellsize = 300.0
+
+    funcs = dict(relief=relief, avg_slope=avg_slope, planar_slope=planar_slope,
+                 local_height=local_height, local_relief=local_relief)
+    columns = sorted(funcs.keys())
+
+    output = []
+    geoms = []
+    yy, xx = np.mgrid[ymin:ymax:cellsize, xmin:xmax:cellsize]
+
+    with open('grid_shape.txt', 'w') as outfile:
+        outfile.write('{}, {}\n'.format(*yy.shape))
+
+    for i, (x, y) in enumerate(zip(xx.flat, yy.flat)):
+        print '{:0.2f}% done'.format(100.0 * i / xx.size)
+        point = geom.Point(x, y)
+        row = [funcs[key](point, lidar) for key in columns]
+        geoms.append(point)
+        output.append(row)
+
+    return geopandas.GeoDataFrame(output, columns=columns, geometry=geoms)
 
 def read(filename, poly, cellsize=None):
     with rio.open(filename, 'r') as src:
