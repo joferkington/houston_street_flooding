@@ -1,3 +1,4 @@
+import os
 import pyproj
 import numpy as np
 import rasterio as rio
@@ -17,18 +18,23 @@ def main():
     funcs = dict(relief=relief, avg_slope=avg_slope, planar_slope=planar_slope,
                  local_height=local_height, local_relief=local_relief)
 
-    features = []
-    columns = sorted(funcs.keys())
-    for _, point in df.iterrows():
-        row = [funcs[key](point.geometry, lidar) for key in columns]
-        row.append(point['flooded'])
-        features.append(row)
-
-    output = pd.DataFrame(features, columns=columns + ['flooded'])
-    output.to_csv('features_and_class.csv')
-
+#    features = []
+#    columns = sorted(funcs.keys())
+#    for _, point in df.iterrows():
+#        row = [funcs[key](point.geometry, lidar) for key in columns]
+#        row.append(point['flooded'])
+#        features.append(row)
+#
+#    output = pd.DataFrame(features, columns=columns + ['flooded'])
+#    output.to_csv('features_and_class.csv')
+#
     pred_features = generate_prediction_points(lidar)
-    pred_features.to_file('prediction_features.geojson', driver='GeoJSON')
+    save_geojson(pred_features, 'prediction_features.geojson')
+
+def save_geojson(data, filename):
+    if os.path.exists(filename):
+        os.unlink(filename)
+    data.to_file(filename, driver='GeoJSON')
 
 def relief(point, lidar_filename):
     region = geom.mapping(point.buffer(300))
@@ -61,7 +67,8 @@ def local_relief(point, lidar_filename):
     return z0 - elev.mean()
 
 def generate_prediction_points(lidar):
-    xmin, ymin, xmax, ymax = 3117065.,13860840., 3137630., 13884230.
+#    xmin, ymin, xmax, ymax = 3117065.,13860840., 3137630., 13884230.
+    xmin, ymin, xmax, ymax = 3112065.,13855840., 3137630., 13884230.
     cellsize = 300.0
 
     funcs = dict(relief=relief, avg_slope=avg_slope, planar_slope=planar_slope,
